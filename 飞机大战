@@ -1,0 +1,378 @@
+from random import random
+
+import pygame
+pygame.init()
+pygame.font.init()
+import time
+import random
+
+
+
+from pygame.locals import *
+
+class HeroPlane(pygame.sprite.Sprite):
+    bullets = pygame.sprite.Group()
+
+    def __init__(self, screen):
+        pygame.sprite.Sprite.__init__(self)
+        self.player = pygame.image.load('./images/me1.png')
+        self.image = pygame.image.load('./images/me1.png')
+        self.rect = self.image.get_rect()
+        self.rect.topleft = [480 / 2 - 102 / 2, 550]
+
+        self.speed = 5
+
+        self.screen = screen
+        self.bullets = pygame.sprite.Group()
+
+
+    def key_control(self):
+        # 监测键盘
+        key_pressed = pygame.key.get_pressed()
+        if key_pressed[K_w] or key_pressed[K_UP]:
+            self.rect.top -= self.speed
+        if key_pressed[K_s] or key_pressed[K_DOWN]:
+            self.rect.bottom += self.speed
+        if key_pressed[K_a] or key_pressed[K_LEFT]:
+            self.rect.left -= self.speed
+        if key_pressed[K_d] or key_pressed[K_RIGHT]:
+            self.rect.right += self.speed
+        if key_pressed[K_SPACE]:
+            bullet = Bullet(self.screen, self.rect.centerx, self.rect.top)
+            self.bullets.add(bullet)
+
+            HeroPlane.bullets.add(bullet)
+
+    def update(self):
+        self.key_control()
+        self.display()
+
+    def display(self):
+        self.screen.blit(self.player, self.rect)
+        #更新子弹坐标
+        self.bullets.update()
+        #添加到屏幕
+        self.bullets.draw(self.screen)
+
+
+    @classmethod
+    def clear_bullets(cls):
+        cls.bullets.empty()
+
+
+class EnemyPlane(pygame.sprite.Sprite):
+    enemy_bullets = pygame.sprite.Group()
+
+    def __init__(self, screen, bg_size):
+
+        pygame.sprite.Sprite.__init__(self)
+        self.player = pygame.image.load('./images/enemy1.png')
+        self.image = pygame.image.load('./images/enemy1.png')
+        self.rect = self.image.get_rect()  # rect = 矩形
+        # 使敌机随机移动
+        x = random.randrange(1, bg_size[0], 50)
+        self.rect.topleft = [x, 0]
+
+        self.speed = 4
+
+        self.screen = screen
+        self.bullet = pygame.sprite.Group()
+        self.direction = 'right'
+
+    def display(self):
+        self.screen.blit(self.player, self.rect)
+        self.bullet.update()
+        # 添加到屏幕
+        self.bullet.draw(self.screen)
+
+    def update(self):
+        self.auto_move()
+        self.auto_fire()
+        self.display()
+
+    def auto_move(self):
+        if self.direction == 'right':
+            self.rect.right += self.speed
+        elif self.direction == 'left':
+            self.rect.right -= self.speed
+        if self.rect.right > 480 - 57:
+            self.direction = 'left'
+        elif self.rect.right < 0:
+            self.direction = 'right'
+
+            self.rect.bottom += self.speed
+
+    def auto_fire(self):
+        random_num = random.randint(1, 50)
+        if random_num == 10:
+            bullet = EnemyBullet(self.screen, self.rect.left, self.rect.top)
+            self.bullet.add(bullet)
+
+            EnemyPlane.enemy_bullets.add(bullet)
+
+    @classmethod
+    def clear_bullets(cls):
+        cls.enemy_bullets.empty()
+
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self,screen, x, y):
+        #精灵类初始化
+        pygame.sprite.Sprite.__init__(self)
+
+        #创建照片
+        self.image = pygame.image.load('./images/bullet0.png')
+
+        #获取矩形对象
+        self.rect = self.image.get_rect()
+        self.rect.centerx = x
+        self.rect.bottom = y
+        #窗口
+        self.screen = screen
+        #子弹速度
+        self.speed = 2
+
+    def update(self):
+        #修改子弹坐标
+        self.rect.y -= self.speed
+        #子弹超出屏幕 销毁子弹
+        if self.rect.top < -22:
+            self.kill()
+
+
+
+
+class EnemyBullet(pygame.sprite.Sprite):
+    def __init__(self,screen, x, y):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.image = pygame.image.load('./images/bullet1.png')
+        self.rect = self.image.get_rect()
+        self.rect.topleft = [x + 58/2 -6/2,y + 36]
+
+
+        self.screen = screen
+        self.speed = 2
+
+    def update(self):
+        #修改子弹坐标
+        self.rect.top += self.speed
+        #子弹超出屏幕 销毁子弹
+        if self.rect.top > 700:
+            self.kill()
+
+
+class GameSound(object):
+    def __init__(self):
+        pygame.mixer.init()
+        pygame.mixer.music.load('./music/bullet.wav')
+        pygame.mixer.music.set_volume(0.5)
+        self._bomb = pygame.mixer.Sound('./music/get_bomb.wav')
+
+    def playBlackSoundMusic(self):
+        pygame.mixer.music.play(-1)
+
+
+    def playBombSound(self):
+        pygame.mixer.Sound.play(self._bomb)
+
+
+
+class Bomb(object):
+    def __init__(self, screen, type):
+        self.screen = screen
+        if type == 'enemy':
+            # 加载敌机爆炸4张图
+            self.mImage = [pygame.image.load('./images/enemy1_down' + str(v) + '.png') for v in range(1, 5)]
+        else:
+            # 加载玩家爆炸4张图
+            self.mImage = [pygame.image.load('./images/me_destroy_' + str(v) + '.png') for v in range(1, 5)]
+
+        self.mIndex = 0
+        self.mPos = [0, 0]
+        self.mVisible = False
+    def action(self, rect):
+        # 触发爆炸
+        self.mPos[0] = rect.left
+        self.mPos[1] = rect.top
+        self.mVisible = True
+        self.mIndex = 0
+
+
+    def draw(self):
+        if not self.mVisible:
+            return
+        # 绘制当前帧的爆炸图片
+        self.screen.blit(self.mImage[self.mIndex], self.mPos)
+        # 切换动画帧（让爆炸动起来）
+        self.mIndex += 1
+        if self.mIndex >= len(self.mImage):
+            # 动画播放完，隐藏
+            self.mVisible = False
+            self.mIndex = 0
+
+
+
+class Manager(object):
+
+    game_over_id = 20
+    is_game_over = False
+
+    #创建敌机的定位器的id
+    create_enemy_id = 10
+
+    #倒计时时长
+    over_time = 2
+
+
+
+
+
+
+    def __init__(self):
+        self.bg_size = (480, 700)
+        # 1创建一个窗口
+        self.screen = pygame.display.set_mode((480, 700), 0, 32)
+        # 创建一个图片，当作背景
+        self.backgroud = pygame.image.load('./images/background.png')
+        # 初始化一个装玩家精灵的group
+        self.players = pygame.sprite.Group()
+        # 初始化一个装敌机精灵的group
+        self.enemys = pygame.sprite.Group()
+        # 初始化一个玩家爆炸的对象
+        self.player_bomb = Bomb(self.screen,'player')
+        # 初始化一个敌机爆炸的对象
+        self.enemy_bomb = Bomb(self.screen, 'enemy')
+        # 初始化一个声音播放的对象
+        self.sound = GameSound()
+
+    def exit(self):
+        print('退出')
+        pygame.quit()
+        exit()
+
+    def show_time_text(self):
+
+        font = pygame.font.Font(None, 100)  # 字号变大
+        text_surface = font.render("GAME OVER", True, (255, 0, 0))
+
+
+        text_rect = text_surface.get_rect(center=(self.bg_size[0] // 2, self.bg_size[1] // 2))
+
+        self.screen.blit(text_surface, text_rect)
+
+    def game_over_timer(self):
+        self.show_time_text()
+        Manager.over_time -= 1
+        if Manager.over_time == 0:
+            pygame.time.set_timer(Manager.game_over_id,0)
+            Manager.over_time = 2
+            Manager.is_game_over = False
+            self.start_game()
+
+    def start_game(self):
+        # 重新开始游戏 清空上一把的类属性
+        EnemyPlane.clear_bullets()
+        HeroPlane.clear_bullets()
+        manager = Manager()
+        manager.main()
+
+
+
+    def new_player(self):
+        player = HeroPlane(self.screen)
+        self.players.add(player)
+
+    def new_enemy(self):
+        enemy = EnemyPlane(self.screen, self.bg_size)
+        self.enemys.add(enemy)
+
+    def main(self):
+        '''完成整个程序的控制'''
+        #播放背景音乐
+        self.sound.playBlackSoundMusic()
+        # 创建一个玩家
+        self.new_player()
+        # 开启定位器
+        pygame.time.set_timer(Manager.create_enemy_id,1200)
+
+        if Manager.is_game_over:
+            # 判断游戏结束才显示文字
+            self.show_time_text()
+
+
+        while True:
+            self.screen.blit(self.backgroud, (0, 0))
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                 self.exit()
+
+                elif event.type == Manager.create_enemy_id:
+                    self.new_enemy()
+                elif event.type == Manager.game_over_id:
+                    self.game_over_timer()
+
+            self.player_bomb.draw()
+            self.enemy_bomb.draw()
+
+            # 爆炸判断
+            iscollide = pygame.sprite.groupcollide(self.players,self.enemys,True,True)
+
+            if iscollide:
+                Manager.is_game_over = True
+                pygame.time.set_timer(Manager.game_over_id,1000)
+                items = list(iscollide.items())[0]
+                print(items)
+                x = items[0]
+                y = items[1][0]
+
+                self.player_bomb.action(x.rect)
+                self.enemy_bomb.action(y.rect)
+
+                self.sound.playBombSound()
+
+            #玩家子弹和敌机的碰撞判断
+            is_enemy = pygame.sprite.groupcollide(HeroPlane.bullets, self.enemys, True, True)
+            if is_enemy:
+                items = list(is_enemy.items())[0]
+
+                y = items[1][0]
+
+                self.enemy_bomb.action(y.rect)
+
+                self.sound.playBombSound()
+
+
+            if self.players.sprites():
+                isover = pygame.sprite.spritecollide(self.players.sprites()[0],EnemyPlane.enemy_bullets,True)
+                if isover:
+                    Manager.is_game_over = True
+                    pygame.time.set_timer(Manager.game_over_id,1000)
+                    print('中弹')
+                    self.player_bomb.action(self.players.sprites()[0].rect)
+                    #中弹爆炸后把玩家飞机从精灵组移除
+                    self.players.remove(self.players.sprites()[0])
+
+                    self.sound.playBombSound()
+
+
+
+
+
+
+
+
+
+
+
+
+            self.players.update()
+            self.enemys.update()
+
+            pygame.display.update()
+            time.sleep(0.01)
+
+
+if __name__ == '__main__':
+    manager = Manager()
+    manager.main()
